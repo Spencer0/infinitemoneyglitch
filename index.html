@@ -136,6 +136,7 @@ body {
 .dash-card { background: #13211a; border-radius: 10px; padding: 14px; display: grid; gap: 4px; }
 .dash-card b { font-size: 20px; font-variant-numeric: tabular-nums; }
 .dash-card .up { color: #00c805; font-size: 13px; }
+.dash-card .down { color: #ff5000; font-size: 13px; }
 .challenge.anchored { transform: none; animation: none; }
 .challenge.anchored::before, .challenge.anchored::after {
   content: ""; position: absolute; top: var(--arrow, 40px); width: 0; height: 0;
@@ -267,16 +268,17 @@ body {
 
 <div class="dash" id="dash" aria-hidden="true">
   <div class="dash-in">
-    <div class="dash-top"><span class="dot"></span>AutoTrader<span class="live">● Bot running</span></div>
+    <div class="dash-top"><span class="dot"></span>AutoTrader<span class="live" id="live">● Bot running</span></div>
     <div><div class="lbl">Portfolio value · started with $20.00</div>
-      <div class="bal">$4,812.37</div>
-      <div class="chg">▲ $4,792.37 (+23,961.85%) all time</div></div>
+      <div class="bal" id="bal">$4,812.37</div>
+      <div class="chg" id="chg">▲ $4,792.37 (+23,961.85%) all time</div></div>
     <canvas id="chart"></canvas>
     <div class="dash-row">
-      <div class="dash-card"><span class="lbl">NVDA</span><b>$1,204.18</b><span class="up">▲ 18.2% today</span></div>
-      <div class="dash-card"><span class="lbl">TSLA 0DTE calls</span><b>$1,877.40</b><span class="up">▲ 412% today</span></div>
-      <div class="dash-card"><span class="lbl">DOGE</span><b>$903.55</b><span class="up">▲ 64.0% today</span></div>
-      <div class="dash-card"><span class="lbl">Trades today</span><b>1,337</b><span class="up">Win rate 98.4%</span></div>
+      <div class="dash-card"><span class="lbl">NVDA</span><b data-q="NVDA">$213.66</b><span class="up" data-p="NVDA">▼ 0.80% today</span></div>
+      <div class="dash-card"><span class="lbl">TSLA</span><b data-q="TSLA">$403.30</b><span class="up" data-p="TSLA">▼ 0.23% today</span></div>
+      <div class="dash-card"><span class="lbl">DOGE</span><b data-q="DOGE">$0.0775</b><span class="up" data-p="DOGE">▼ 3.34% today</span></div>
+      <div class="dash-card"><span class="lbl">Nasdaq Composite</span><b data-q="NASDAQ">26,184.73</b><span class="up" data-p="NASDAQ">▼ 1.38% today</span></div>
+      <div class="dash-card"><span class="lbl">Trades today</span><b id="trades">1,337</b><span class="up" id="win">Win rate 98.4%</span></div>
     </div>
   </div>
 </div>
@@ -312,6 +314,8 @@ body {
 <script>
 (() => {
 'use strict';
+const R = (a, b) => a + Math.random() * (b - a);
+const RI = (a, b) => Math.floor(R(a, b + 1));
 /* fake equity curve for the dashboard behind the check */
 function chart() {
   const cv = document.getElementById('chart'), r = cv.getBoundingClientRect(), d = 2;
@@ -330,8 +334,28 @@ function chart() {
 chart();
 addEventListener('resize', chart);
 
-const R = (a, b) => a + Math.random() * (b - a);
-const RI = (a, b) => Math.floor(R(a, b + 1));
+/* a new balance every load, and real quotes from quotes.json (refreshed by the deploy workflow) */
+const usd = (v, d = 2) => '$' + v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+(function balance() {
+  const bal = Math.round(Math.exp(R(Math.log(900), Math.log(85000))) * 100) / 100;
+  document.getElementById('bal').textContent = usd(bal);
+  document.getElementById('chg').textContent = `▲ ${usd(bal - 20)} (+${((bal - 20) / 20 * 100).toLocaleString('en-US', { maximumFractionDigits: 2 })}%) all time`;
+  document.getElementById('trades').textContent = RI(400, 4000).toLocaleString('en-US');
+  document.getElementById('win').textContent = `Win rate ${R(94, 99.9).toFixed(1)}%`;
+})();
+fetch('quotes.json', { cache: 'no-store' }).then(r => r.json()).then(d => {
+  for (const [k, q] of Object.entries(d.quotes || {})) {
+    const b = document.querySelector(`[data-q="${k}"]`), p = document.querySelector(`[data-p="${k}"]`);
+    if (!b || !p) continue;
+    b.textContent = k === 'NASDAQ' ? q.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : usd(q.price, q.price < 1 ? 4 : 2);
+    const up = q.changePct >= 0;
+    p.className = up ? 'up' : 'down';
+    p.textContent = `${up ? '▲' : '▼'} ${Math.abs(q.changePct).toFixed(2)}% today`;
+  }
+  if (d.updated) document.getElementById('live').textContent = '● Bot running · quotes ' +
+    new Date(d.updated * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET';
+}).catch(() => {});
+
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const chance = p => Math.random() < p;
 

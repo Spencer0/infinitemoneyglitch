@@ -4,6 +4,9 @@ on:
   push:
     branches: [master]
   workflow_dispatch:
+  schedule:
+    # refresh quotes every 15 minutes while US markets are open (UTC, Mon-Fri)
+    - cron: "*/15 13-21 * * 1-5"
 
 permissions:
   contents: read
@@ -22,6 +25,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: Fetch live quotes
+        run: python3 scripts/quotes.py quotes.json || echo '{"quotes":{}}' > quotes.json
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
