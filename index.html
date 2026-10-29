@@ -3,7 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>reCAPTCHA</title>
+<title>AutoTrader · Live P&amp;L</title>
+<meta name="description" content="My AI trading bot. Started with $20. Live positions, trades and P&amp;L.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AutoTrader">
+<meta property="og:title" content="AutoTrader · Live P&amp;L">
+<meta property="og:description" content="My AI trading bot. Started with $20. Live positions, trades and P&amp;L.">
+<meta property="og:url" content="https://spencer0.github.io/infinitemoneyglitch/">
+<meta property="og:image" content="https://spencer0.github.io/infinitemoneyglitch/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="AutoTrader · Live P&amp;L">
+<meta name="twitter:description" content="My AI trading bot. Started with $20. Live positions, trades and P&amp;L.">
+<meta name="twitter:image" content="https://spencer0.github.io/infinitemoneyglitch/preview.png">
+<meta name="theme-color" content="#0b1410">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1410'/%3E%3Cpath d='M5 23l7-7 5 4 10-11' fill='none' stroke='%2300c805' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
@@ -23,6 +38,7 @@
   color-scheme: light;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body {
   margin: 0;
@@ -85,10 +101,41 @@ body {
 .brand b { font-size: 10px; font-weight: 400; margin-top: 2px; color: #555; }
 .brand small { font-size: 8px; color: #999; margin-top: 1px; }
 
-.tally { color: #888; font-size: 12px; font-variant-numeric: tabular-nums; min-height: 1em; }
+.tally { color: #cfd8d3; font-size: 12px; font-variant-numeric: tabular-nums; min-height: 1em; }
 
 /* ---------- challenge popup ---------- */
-.veil { position: fixed; inset: 0; background: transparent; }
+.veil { position: fixed; inset: 0; background: transparent; z-index: 2; }
+#popup .challenge { z-index: 3; }
+.widget, .tally, .gate { position: relative; z-index: 1; }
+.gate {
+  background: rgba(255,255,255,.96); border-radius: 8px; padding: 18px 18px 14px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.35); display: flex; flex-direction: column; gap: 12px; align-items: center;
+  max-width: 100%;
+}
+.gate h1 { font-size: 16px; font-weight: 500; margin: 0; color: #202124; text-align: center; }
+.gate p { margin: 0; color: #5f6368; font-size: 13px; text-align: center; max-width: 300px; }
+
+/* ---------- blurred dashboard behind the check ---------- */
+.dash {
+  position: fixed; inset: 0; z-index: 0; overflow: hidden;
+  background: #0b1410; color: #e8f2ec;
+  padding: 28px max(16px, env(safe-area-inset-left, 0px));
+  font-family: var(--font);
+  filter: blur(7px); transform: scale(1.04);
+}
+.dash.clear { filter: none; transform: none; }
+.dash-in { max-width: 1100px; margin: 0 auto; display: grid; gap: 18px; }
+.dash-top { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+.dash-top .live { margin-left: auto; font-size: 12px; font-weight: 500; color: #00c805; border: 1px solid #00c805; border-radius: 99px; padding: 3px 10px; }
+.dash-top .dot { width: 26px; height: 26px; border-radius: 7px; background: #00c805; }
+.dash .lbl { color: #8ea398; font-size: 13px; }
+.dash .bal { font-size: 54px; font-weight: 700; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.dash .chg { color: #00c805; font-size: 18px; font-weight: 500; }
+.dash canvas { width: 100%; height: 260px; display: block; }
+.dash-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.dash-card { background: #13211a; border-radius: 10px; padding: 14px; display: grid; gap: 4px; }
+.dash-card b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.dash-card .up { color: #00c805; font-size: 13px; }
 .challenge.anchored { transform: none; animation: none; }
 .challenge.anchored::before, .challenge.anchored::after {
   content: ""; position: absolute; top: var(--arrow, 40px); width: 0; height: 0;
@@ -218,10 +265,30 @@ body {
 </head>
 <body>
 
+<div class="dash" id="dash" aria-hidden="true">
+  <div class="dash-in">
+    <div class="dash-top"><span class="dot"></span>AutoTrader<span class="live">● Bot running</span></div>
+    <div><div class="lbl">Portfolio value · started with $20.00</div>
+      <div class="bal">$4,812.37</div>
+      <div class="chg">▲ $4,792.37 (+23,961.85%) all time</div></div>
+    <canvas id="chart"></canvas>
+    <div class="dash-row">
+      <div class="dash-card"><span class="lbl">NVDA</span><b>$1,204.18</b><span class="up">▲ 18.2% today</span></div>
+      <div class="dash-card"><span class="lbl">TSLA 0DTE calls</span><b>$1,877.40</b><span class="up">▲ 412% today</span></div>
+      <div class="dash-card"><span class="lbl">DOGE</span><b>$903.55</b><span class="up">▲ 64.0% today</span></div>
+      <div class="dash-card"><span class="lbl">Trades today</span><b>1,337</b><span class="up">Win rate 98.4%</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="gate" id="gate">
+<h1>Verify you're human to view the dashboard</h1>
+<p>Live positions are hidden from automated traffic.</p>
 <div class="widget" id="widget">
   <button class="check" id="check" aria-label="I'm not a robot"></button>
   <span class="label">I'm not a robot</span>
   <span class="brand"><canvas id="logo" width="64" height="64"></canvas><b>reCAPTCHA</b><small>Privacy - Terms</small></span>
+</div>
 </div>
 <div class="tally" id="tally"></div>
 
@@ -245,6 +312,24 @@ body {
 <script>
 (() => {
 'use strict';
+/* fake equity curve for the dashboard behind the check */
+function chart() {
+  const cv = document.getElementById('chart'), r = cv.getBoundingClientRect(), d = 2;
+  cv.width = r.width * d; cv.height = r.height * d;
+  const c = cv.getContext('2d'), W = cv.width, H = cv.height, n = 160, pts = [];
+  let v = 1;
+  for (let i = 0; i < n; i++) { v *= 1 + (Math.random() - .38) * .09; pts.push(v); }
+  const max = Math.max(...pts), min = Math.min(...pts);
+  const xy = (p, i) => [i / (n - 1) * W, H - 8 - (p - min) / (max - min) * (H - 16)];
+  const g = c.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, 'rgba(0,200,5,.35)'); g.addColorStop(1, 'rgba(0,200,5,0)');
+  c.beginPath(); pts.forEach((p, i) => { const [x, y] = xy(p, i); i ? c.lineTo(x, y) : c.moveTo(x, y); });
+  c.lineWidth = 2.5 * d; c.strokeStyle = '#00c805'; c.stroke();
+  c.lineTo(W, H); c.lineTo(0, H); c.closePath(); c.fillStyle = g; c.fill();
+}
+chart();
+addEventListener('resize', chart);
+
 const R = (a, b) => a + Math.random() * (b - a);
 const RI = (a, b) => Math.floor(R(a, b + 1));
 const pick = a => a[Math.floor(Math.random() * a.length)];
