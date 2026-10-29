@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Infinite Captcha</title>
+<title>reCAPTCHA</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
@@ -89,6 +89,13 @@ body {
 
 /* ---------- challenge popup ---------- */
 .veil { position: fixed; inset: 0; background: transparent; }
+.challenge.anchored { transform: none; animation: none; }
+.challenge.anchored::before, .challenge.anchored::after {
+  content: ""; position: absolute; top: var(--arrow, 40px); width: 0; height: 0;
+  border: 11px solid transparent; border-left: 0;
+}
+.challenge.anchored::before { left: -11px; border-right-color: #ccc; }
+.challenge.anchored::after { left: -10px; border-right-color: #fff; }
 .challenge {
   position: fixed;
   left: 50%; top: 50%;
@@ -214,7 +221,7 @@ body {
 <div class="widget" id="widget">
   <button class="check" id="check" aria-label="I'm not a robot"></button>
   <span class="label">I'm not a robot</span>
-  <span class="brand"><canvas id="logo" width="64" height="64"></canvas><b>notaCAPTCHA</b><small>Privacy - Terms</small></span>
+  <span class="brand"><canvas id="logo" width="64" height="64"></canvas><b>reCAPTCHA</b><small>Privacy - Terms</small></span>
 </div>
 <div class="tally" id="tally"></div>
 
@@ -656,6 +663,7 @@ function newChallenge(msg) {
   }
   showErr(msg);
   updateButton();
+  if (!popup.hidden) anchor();
 }
 
 function tileEl(i) {
@@ -741,6 +749,19 @@ function tally() {
   $('tally').textContent = rounds ? `Challenges completed: ${rounds} · Robots detected: 1` : '';
 }
 
+/* On wide screens the popup sits beside the checkbox with an arrow pointing at it, like the real one. */
+function anchor() {
+  const ch = $('challenge'), w = $('widget').getBoundingClientRect(), b = check.getBoundingClientRect();
+  if (innerWidth < 760) { ch.classList.remove('anchored'); ch.style.left = ch.style.top = ''; return; }
+  ch.classList.add('anchored');
+  const h = ch.offsetHeight, cy = b.top + b.height / 2;
+  const top = Math.max(8, Math.min(innerHeight - h - 8, cy - 60));
+  ch.style.left = (b.right + 18) + 'px';
+  ch.style.top = top + 'px';
+  ch.style.setProperty('--arrow', (cy - top - 11) + 'px');
+}
+addEventListener('resize', () => { if (!popup.hidden) anchor(); });
+
 const check = $('check');
 check.addEventListener('click', () => {
   if (check.classList.contains('spinning')) return;
@@ -748,6 +769,7 @@ check.addEventListener('click', () => {
   setTimeout(() => {
     newChallenge('');
     popup.hidden = false;
+    anchor();
   }, 900);
 });
 })();
